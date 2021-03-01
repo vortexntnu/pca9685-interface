@@ -17,10 +17,15 @@ class Pca9685InterfaceNode(object):
         rospy.init_node('pwm_node')
         self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
 
-        self.pca9685 = Adafruit_PCA9685.PCA9685()
-        self.pca9685.set_pwm_freq(FREQUENCY)
-        self.pca9685.set_all_pwm(0, 0)
-        self.current_pwm = [0]*16
+        try:
+            self.pca9685 = Adafruit_PCA9685.PCA9685()
+            self.pca9685.set_pwm_freq(FREQUENCY)
+            self.pca9685.set_all_pwm(0, 0)
+            self.current_pwm = [0]*16
+        except Exception as e:
+            rospy.logerr(e)
+            
+
 
         rospy.on_shutdown(self.shutdown)
 
