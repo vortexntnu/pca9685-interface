@@ -10,9 +10,9 @@ from vortex_msgs.msg import ThrusterForces, Pwm
 THRUST_RANGE_LIMIT = 100
 
 NUM_THRUSTERS = rospy.get_param('/propulsion/thrusters/num')
-THRUST_OFFSET = rospy.get_param('/thrusters/offset')
-LOOKUP_THRUST = rospy.get_param('/thrusters/characteristics/thrust')
-LOOKUP_PULSE_WIDTH = rospy.get_param('/thrusters/characteristics/pulse_width')
+THRUST_OFFSET = rospy.get_param('/propulsion/thrusters/offset')
+LOOKUP_THRUST = rospy.get_param('/propulsion/thrusters/characteristics/thrust')
+LOOKUP_PULSE_WIDTH = rospy.get_param('/propulsion/thrusters/characteristics/pulse_width')
 THRUSTER_MAPPING = rospy.get_param('/propulsion/thrusters/map')
 THRUSTER_DIRECTION = rospy.get_param('/propulsion/thrusters/direction')
 
@@ -35,7 +35,7 @@ def healthy_message(msg):
 
 class ThrusterInterface(object):
     def __init__(self):
-        rospy.init_node('/thruster_interface', anonymous=False)
+        rospy.init_node('thruster_interface', anonymous=False)
         self.pub_pwm = rospy.Publisher('pwm', Pwm, queue_size=10)
         self.sub = rospy.Subscriber('/thrust/thruster_forces', ThrusterForces, self.callback)
 
