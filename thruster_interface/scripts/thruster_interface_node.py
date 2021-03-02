@@ -42,10 +42,6 @@ class ThrusterInterface(object):
         self.output_to_zero()
         rospy.on_shutdown(self.output_to_zero)
         rospy.loginfo('Initialized with thruster direction:\n\t{0}.'.format(THRUSTER_DIRECTION))
-
-        for i in range(NUM_THRUSTERS):
-            THRUST_OFFSET[i] *= THRUSTER_DIRECTION[i]
-
         rospy.loginfo('Initialized with offset:\n\t{0}.'.format(THRUST_OFFSET))
 
     def output_to_zero(self):
@@ -67,7 +63,8 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
 
         for i in range(NUM_THRUSTERS):
-            microsecs[i] = thrust_to_microsecs(thrust[i] + THRUST_OFFSET[i])
+            thrust_with_offset = THRUSTER_DIRECTION[i]*(thrust[i] + THRUST_OFFSET[i])
+            microsecs[i] = thrust_to_microsecs(thrust_with_offset)
             pwm_msg.pins.append(THRUSTER_MAPPING[i])
             pwm_msg.positive_width_us.append(microsecs[i])
             

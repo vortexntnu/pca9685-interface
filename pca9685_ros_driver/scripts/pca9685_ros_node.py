@@ -18,7 +18,7 @@ class Pca9685InterfaceNode(object):
         self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
 
         try:
-            self.pca9685 = Adafruit_PCA9685.PCA9685()
+            self.pca9685 = Adafruit_PCA9685.PCA9685(address=0x40, busnum=8)
             self.pca9685.set_pwm_freq(FREQUENCY)
             self.pca9685.set_all_pwm(0, 0)
             self.current_pwm = [0]*16
