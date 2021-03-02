@@ -5,11 +5,11 @@ from vortex_msgs.msg import Pwm
 import Adafruit_PCA9685
 
 # Constants
-PWM_BITS_PER_PERIOD = 4095 #rospy.get_param('/pwm/counter/max')
-FREQUENCY = 50.0 #rospy.get_param('/pwm/frequency/set')
-FREQUENCY_MEASURED = 51.6 #rospy.get_param('/pwm/frequency/measured')
+PWM_BITS_PER_PERIOD = rospy.get_param('/pca9685/pwm/bits_per_period')
+FREQUENCY = rospy.get_param('/pca9685/pwm/frequency')
+FREQUENCY_MEASURED = rospy.get_param('/pca9685/pwm/frequency_measured')
 PERIOD_LENGTH_IN_MICROSECONDS = 1000000.0 / FREQUENCY_MEASURED
-PWM_ON = 0  # Start of duty cycle
+PWM_ON = 0 # Start of duty cycle
 
 
 class Pca9685InterfaceNode(object):
@@ -17,15 +17,15 @@ class Pca9685InterfaceNode(object):
         rospy.init_node('pwm_node')
         self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
 
+        addr = rospy.get_param('/i2c/address')
+        bus = rospy.get_param('/i2c/bus')
         try:
-            self.pca9685 = Adafruit_PCA9685.PCA9685(address=0x40, busnum=8)
+            self.pca9685 = Adafruit_PCA9685.PCA9685(address=addr, busnum=bus)
             self.pca9685.set_pwm_freq(FREQUENCY)
             self.pca9685.set_all_pwm(0, 0)
             self.current_pwm = [0]*16
         except Exception as e:
             rospy.logerr(e)
-            
-
 
         rospy.on_shutdown(self.shutdown)
 
