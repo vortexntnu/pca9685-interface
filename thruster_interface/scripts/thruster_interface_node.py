@@ -13,7 +13,6 @@ NUM_THRUSTERS = rospy.get_param('/propulsion/thrusters/num')
 THRUST_OFFSET = rospy.get_param('/propulsion/thrusters/offset')
 LOOKUP_THRUST = rospy.get_param('/propulsion/thrusters/characteristics/thrust')
 LOOKUP_PULSE_WIDTH = rospy.get_param('/propulsion/thrusters/characteristics/pulse_width')
-THRUSTER_MAPPING = rospy.get_param('/propulsion/thrusters/map')
 THRUSTER_DIRECTION = rospy.get_param('/propulsion/thrusters/direction')
 
 
@@ -45,14 +44,10 @@ class ThrusterInterface(object):
         rospy.loginfo('Initialized with offset:\n\t{0}.'.format(THRUST_OFFSET))
 
     def output_to_zero(self):
-        neutral_pulse_width = thrust_to_microsecs(0)
-        pwm_msg = Pwm()
+        zero_thrust_msg = ThrusterForces()
         for i in range(NUM_THRUSTERS):
-            pwm_msg.pins.append(THRUSTER_MAPPING[i])
-            pwm_msg.positive_width_us.append(neutral_pulse_width)
-            
-        pwm_msg.positive_width_us = np.array(pwm_msg.positive_width_us).astype('uint16')
-        self.pub_pwm.publish(pwm_msg)
+            zero_thrust_msg.thrust.append(0)
+        self.callback(zero_thrust_msg)
 
     def callback(self, msg):
         if not healthy_message(msg):
@@ -63,12 +58,17 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
 
         for i in range(NUM_THRUSTERS):
-            thrust_with_offset = THRUSTER_DIRECTION[i]*(thrust[i] + THRUST_OFFSET[i])
-            microsecs[i] = thrust_to_microsecs(thrust_with_offset)
-            pwm_msg.pins.append(THRUSTER_MAPPING[i])
-            pwm_msg.positive_width_us.append(microsecs[i])
+            pwm_microsecs = thrust_to_microsecs(thrust[i]) + THRUST_OFFSET[i]
             
-        pwm_msg.positive_width_us = np.array(pwm_msg.positive_width_us).astype('uint16')
+            if THRUSTER_DIRECTION[i] == -1:
+                middle_value = 1500 + THRUST_OFFSET[i]
+                diff = pwm_microsecs - middle_value
+                pwm_microsecs = middle_value - diff 
+            
+            microsecs[i] = pwm_microsecs
+            pwm_msg.pins.append(i)
+            
+        pwm_msg.positive_width_us = np.array(microsecs).astype('uint16')
         self.pub_pwm.publish(pwm_msg)
 
 
