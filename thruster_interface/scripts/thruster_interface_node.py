@@ -10,10 +10,9 @@ from vortex_msgs.msg import ThrusterForces, Pwm
 
 class ThrusterInterface(object):
     def __init__(self):
-        rospy.init_node('thruster_interface', anonymous=False)
-        self.pub_pwm = rospy.Publisher('pwm', Pwm, queue_size=10)
-        self.sub = rospy.Subscriber('/thrust/thruster_forces', ThrusterForces,
-                                    self.thrust_cb)
+
+        self.pwm_pub = None
+        self.sub = None
 
         self.output_to_zero()
         rospy.on_shutdown(self.output_to_zero)
@@ -57,7 +56,7 @@ class ThrusterInterface(object):
             pwm_msg.pins.append(i)
 
         pwm_msg.positive_width_us = np.array(microsecs).astype('uint16')
-        self.pub_pwm.publish(pwm_msg)
+        self.pwm_pub.publish(pwm_msg)
 
     def output_to_zero(self):
         zero_thrust_msg = ThrusterForces()
@@ -67,12 +66,22 @@ class ThrusterInterface(object):
 
 
 if __name__ == '__main__':
+    rospy.init_node('thruster_interface')
+
     THRUST_RANGE_LIMIT = 100
     NUM_THRUSTERS = rospy.get_param('/propulsion/thrusters/num')
     THRUST_OFFSET = rospy.get_param('/propulsion/thrusters/offset')
-    LOOKUP_THRUST = rospy.get_param('/propulsion/thrusters/characteristics/thrust')
-    LOOKUP_PULSE_WIDTH = rospy.get_param('/propulsion/thrusters/characteristics/pulse_width')
+    LOOKUP_THRUST = rospy.get_param(
+        '/propulsion/thrusters/characteristics/thrust')
+    LOOKUP_PULSE_WIDTH = rospy.get_param(
+        '/propulsion/thrusters/characteristics/pulse_width')
     THRUSTER_DIRECTION = rospy.get_param('/propulsion/thrusters/direction')
 
     thruster_interface = ThrusterInterface()
+
+    thruster_interface.pwm_pub = rospy.Publisher('pwm', Pwm, queue_size=10)
+    thruster_interface.thrust_sub = rospy.Subscriber(
+        '/thrust/thruster_forces', ThrusterForces,
+        thruster_interface.thrust_cb)
+    
     rospy.spin()
