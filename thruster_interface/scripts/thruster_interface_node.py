@@ -1,27 +1,33 @@
 #!/usr/bin/env python
 
 from math import isnan, isinf
-from numpy import interp
 import rospy
 import numpy as np
 
+from std_msgs.msg import Int32
 from vortex_msgs.msg import ThrusterForces, Pwm
 
 
 class ThrusterInterface(object):
-    def __init__(self):
+    def __init__(self, path_to_mapping, voltage_topic, thurster_forces_topic,
+                 pwm_topic):
 
-        self.pwm_pub = None
-        self.sub = None
+        self.voltage = None
+
+        self.voltage_sub = rospy.Subscriber(voltage_topic, Int32,
+                                            self.voltage_cb)
+        rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
+        self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
+        self.thrust_sub = rospy.Subscriber(thurster_forces_topic,
+                                           ThrusterForces, self.thrust_cb)
 
         self.output_to_zero()
         rospy.on_shutdown(self.output_to_zero)
-        rospy.loginfo('Initialized with thruster direction:\n\t{0}.'.format(
-            THRUSTER_DIRECTION))
-        rospy.loginfo('Initialized with offset:\n\t{0}.'.format(THRUST_OFFSET))
+
+        rospy.loginfo('Thruster interface initialized')
 
     def thrust_to_microsecs(self, thrust):
-        return interp(thrust, LOOKUP_THRUST, LOOKUP_PULSE_WIDTH)
+        return np.interp(thrust, LOOKUP_THRUST, LOOKUP_PULSE_WIDTH)
 
     def healthy_message(self, msg):
         if len(msg.thrust) != NUM_THRUSTERS:
@@ -44,8 +50,7 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
 
         for i in range(NUM_THRUSTERS):
-            pwm_microsecs = self.thrust_to_microsecs(
-                thrust[i]) + THRUST_OFFSET[i]
+            pwm_microsecs = self.thrust_to_microsecs(thrust[i]) + THRUST_OFFSET[i]
 
             if THRUSTER_DIRECTION[i] == -1:
                 middle_value = 1500 + THRUST_OFFSET[i]
@@ -64,6 +69,9 @@ class ThrusterInterface(object):
             zero_thrust_msg.thrust.append(0)
         self.thrust_cb(zero_thrust_msg)
 
+    def voltage_cb(self, voltage_msg):
+        self.voltage = voltage_msg.data
+
 
 if __name__ == '__main__':
     rospy.init_node('thruster_interface')
@@ -77,11 +85,17 @@ if __name__ == '__main__':
         '/propulsion/thrusters/characteristics/pulse_width')
     THRUSTER_DIRECTION = rospy.get_param('/propulsion/thrusters/direction')
 
-    thruster_interface = ThrusterInterface()
-
-    thruster_interface.pwm_pub = rospy.Publisher('pwm', Pwm, queue_size=10)
-    thruster_interface.thrust_sub = rospy.Subscriber(
-        '/thrust/thruster_forces', ThrusterForces,
-        thruster_interface.thrust_cb)
+    pwm_topic = 'pwm'
+    voltage_topic = '/auv/battery_level'
+    thrust_topic = '/thrust/thruster_forces'
     
+    path_to_thruster_mapping = ''
+
+    thruster_interface = ThrusterInterface(
+        path_to_thruster_mapping,
+        voltage_topic,
+        thrust_topic,
+        pwm_topic
+    )
+
     rospy.spin()
