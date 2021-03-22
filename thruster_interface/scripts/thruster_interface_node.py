@@ -10,12 +10,19 @@ from vortex_msgs.msg import ThrusterForces, Pwm
 
 class ThrusterInterface(object):
     def __init__(self, path_to_mapping, voltage_topic, thurster_forces_topic,
-                 pwm_topic):
+                 pwm_topic, thrust_forward_limit, thrust_backward_limit,
+                 num_thrusters, thruster_directions, thruster_offsets):
+
+        self.num_thrusters = num_thrusters
+        self.thruster_directions = thruster_directions
+        self.thruter_offsets = thruster_offsets
+        self.thrust_forward_limit = thrust_forward_limit
+        self.thrust_backward_limit = thrust_backward_limit
 
         self.voltage = None
-
         self.voltage_sub = rospy.Subscriber(voltage_topic, Int32,
                                             self.voltage_cb)
+        rospy.loginfo('waiting for voltage on {voltage_topic}..')
         rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
         self.thrust_sub = rospy.Subscriber(thurster_forces_topic,
@@ -26,31 +33,70 @@ class ThrusterInterface(object):
 
         rospy.loginfo('Thruster interface initialized')
 
+    def zero_thrust_msg(self):
+        """creates a ThrusterForces message with all thrusts set to zero
+
+        Returns:
+            ThrusterForces: message with all thrusts set to zero
+        """
+        zero_thrust_msg = ThrusterForces()
+        for i in range(NUM_THRUSTERS):
+            zero_thrust_msg.thrust.append(0)
+        return zero_thrust_msg
+
     def thrust_to_microsecs(self, thrust):
         return np.interp(thrust, LOOKUP_THRUST, LOOKUP_PULSE_WIDTH)
 
-    def healthy_message(self, msg):
-        if len(msg.thrust) != NUM_THRUSTERS:
-            rospy.logwarn_throttle(10,
-                                   'Wrong number of thrusters, ignoring...')
-            return False
+    def validate_and_limit_thrust(self, thrust_msg):
+        """limits a thrust value to achieveable maximum and minumum values and
+        performs sanity checks on the message. Returns zero thrust is desired 
+        thrust is insane and returns a limited thurst if desired thrusts are 
+        out of bounds.
 
-        for t in msg.thrust:
-            if isnan(t) or isinf(t) or (abs(t) > THRUST_RANGE_LIMIT):
-                rospy.logwarn_throttle(10, 'Message out of range, ignoring...')
-                return False
-        return True
+        Args:
+            thrust_msg (ThrusterForces): msg with desired thrusts in newton
 
-    def thrust_cb(self, msg):
-        if not self.healthy_message(msg):
-            return
-        thrust = list(msg.thrust)
+        Returns:
+            ThrusterForces: msg with achievable thrusts in newton
+        """
+        if len(thrust_msg.thrust) != NUM_THRUSTERS:
+            rospy.logerr('Wrong number of thrusters, setting thrust to zero')
+            return self.zero_thrust_msg()
+
+        for thruster_number in range(thrust_msg.thrust):
+            thrust = thrust_msg.thrust[thruster_number]
+            if isnan(thrust) or isinf(thrust):
+                rospy.logerr(
+                    'Desired thrust Nan or Inf, setting thrust to zero')
+                return self.zero_thrust_msg()
+            if thrust > self.thrust_forward_limit:
+                rospy.logerr(
+                    'Thruster {thruster_number} limited to maximum forward thrust'
+                )
+                thrust_msg.thrust[thruster_number] = self.thrust_forward_limit
+            if thrust < self.thrust_backward_limit:
+                rospy.logerr(
+                    'Thruster {thruster_number} limited to maximum backward thrust'
+                )
+                thrust_msg.thrust[thruster_number] = self.thrust_backward_limit
+
+        return thrust_msg
+
+    def thrust_cb(self, thrust_msg):
+        """Takes inn desired thruster forces and publishes corresponding desired pwm values.
+
+        Args:
+            thrust_msg (ThrusterForces): desired thruster forces in newton
+        """
+        thrust_msg = self.validate_and_limit_thrust(thrust_msg)
+        thrust = list(thrust_msg.thrust)
 
         microsecs = [None] * NUM_THRUSTERS
         pwm_msg = Pwm()
 
         for i in range(NUM_THRUSTERS):
-            pwm_microsecs = self.thrust_to_microsecs(thrust[i]) + THRUST_OFFSET[i]
+            pwm_microsecs = self.thrust_to_microsecs(
+                thrust[i]) + THRUST_OFFSET[i]
 
             if THRUSTER_DIRECTION[i] == -1:
                 middle_value = 1500 + THRUST_OFFSET[i]
@@ -64,9 +110,9 @@ class ThrusterInterface(object):
         self.pwm_pub.publish(pwm_msg)
 
     def output_to_zero(self):
-        zero_thrust_msg = ThrusterForces()
-        for i in range(NUM_THRUSTERS):
-            zero_thrust_msg.thrust.append(0)
+        """Sets thrust to zero
+        """
+        zero_thrust_msg = self.zero_thrust_msg()
         self.thrust_cb(zero_thrust_msg)
 
     def voltage_cb(self, voltage_msg):
@@ -74,7 +120,7 @@ class ThrusterInterface(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node('thruster_interface')
+    rospy.init_node('thruster_interface', log_level=rospy.INFO)
 
     THRUST_RANGE_LIMIT = 100
     NUM_THRUSTERS = rospy.get_param('/propulsion/thrusters/num')
@@ -88,14 +134,11 @@ if __name__ == '__main__':
     pwm_topic = 'pwm'
     voltage_topic = '/auv/battery_level'
     thrust_topic = '/thrust/thruster_forces'
-    
+
     path_to_thruster_mapping = ''
 
-    thruster_interface = ThrusterInterface(
-        path_to_thruster_mapping,
-        voltage_topic,
-        thrust_topic,
-        pwm_topic
-    )
+    thruster_interface = ThrusterInterface(path_to_thruster_mapping,
+                                           voltage_topic, thrust_topic,
+                                           pwm_topic)
 
     rospy.spin()
