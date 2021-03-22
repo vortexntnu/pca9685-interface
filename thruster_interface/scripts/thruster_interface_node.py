@@ -4,8 +4,8 @@ from math import isnan, isinf
 import rospy
 import numpy as np
 
-from std_msgs.msg import Int32
-from vortex_msgs.msg import ThrusterForces, Pwm
+from std_msgs.msg import Int32, Float32
+from vortex_msgs.msg import Pwm
 
 
 class ThrusterInterface(object):
@@ -26,7 +26,7 @@ class ThrusterInterface(object):
         rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
         self.thrust_sub = rospy.Subscriber(thurster_forces_topic,
-                                           ThrusterForces, self.thrust_cb)
+                                           Float32, self.thrust_cb)
 
         self.output_to_zero()
         rospy.on_shutdown(self.output_to_zero)
@@ -39,9 +39,9 @@ class ThrusterInterface(object):
         Returns:
             ThrusterForces: message with all thrusts set to zero
         """
-        zero_thrust_msg = ThrusterForces()
+        zero_thrust_msg = Float32()
         for i in range(NUM_THRUSTERS):
-            zero_thrust_msg.thrust.append(0)
+            zero_thrust_msg.data.append(0)
         return zero_thrust_msg
 
     def thrust_to_microsecs(self, thrust):
@@ -54,17 +54,17 @@ class ThrusterInterface(object):
         out of bounds.
 
         Args:
-            thrust_msg (ThrusterForces): msg with desired thrusts in newton
+            thrust_msg (Float32): msg with desired thrusts in newton
 
         Returns:
-            ThrusterForces: msg with achievable thrusts in newton
+            Float32: msg with achievable thrusts in newton
         """
-        if len(thrust_msg.thrust) != NUM_THRUSTERS:
+        if len(thrust_msg.data) != NUM_THRUSTERS:
             rospy.logerr('Wrong number of thrusters, setting thrust to zero')
             return self.zero_thrust_msg()
 
-        for thruster_number in range(thrust_msg.thrust):
-            thrust = thrust_msg.thrust[thruster_number]
+        for thruster_number in range(thrust_msg.data):
+            thrust = thrust_msg.data[thruster_number]
             if isnan(thrust) or isinf(thrust):
                 rospy.logerr(
                     'Desired thrust Nan or Inf, setting thrust to zero')
@@ -73,12 +73,12 @@ class ThrusterInterface(object):
                 rospy.logerr(
                     'Thruster {thruster_number} limited to maximum forward thrust'
                 )
-                thrust_msg.thrust[thruster_number] = self.thrust_forward_limit
+                thrust_msg.data[thruster_number] = self.thrust_forward_limit
             if thrust < self.thrust_backward_limit:
                 rospy.logerr(
                     'Thruster {thruster_number} limited to maximum backward thrust'
                 )
-                thrust_msg.thrust[thruster_number] = self.thrust_backward_limit
+                thrust_msg.data[thruster_number] = self.thrust_backward_limit
 
         return thrust_msg
 
@@ -86,10 +86,10 @@ class ThrusterInterface(object):
         """Takes inn desired thruster forces and publishes corresponding desired pwm values.
 
         Args:
-            thrust_msg (ThrusterForces): desired thruster forces in newton
+            thrust_msg (Float32): desired thruster forces in newton
         """
         thrust_msg = self.validate_and_limit_thrust(thrust_msg)
-        thrust = list(thrust_msg.thrust)
+        thrust = list(thrust_msg.data)
 
         microsecs = [None] * NUM_THRUSTERS
         pwm_msg = Pwm()
