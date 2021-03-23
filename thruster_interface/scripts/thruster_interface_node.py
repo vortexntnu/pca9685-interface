@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
     T200_DATASHEET_PATH = rospy.get_param(
         "/thruster_interface/thruster_datasheet_path",
-        default='PCA9685_Thruster_Interface/thruster_interface/config/T200-Public-Performance-Data-10-20V-September-2019.xlsx',
+        default='config/T200-Public-Performance-Data-10-20V-September-2019.xlsx',
     )
     NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num", default=8)
     THRUST_OFFSET = rospy.get_param("/propulsion/thrusters/offset")
