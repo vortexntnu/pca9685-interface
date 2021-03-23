@@ -48,7 +48,7 @@ class ThrusterInterface(object):
         rospy.loginfo("Thruster interface initialized")
 
     def parse_and_interpolate_thruster_data(thruster_datasheet_path):
-        """Parses the blue robotics T200 datasheet and creates entries
+        """Parses the blue robotics T200 datasheet and creates a new dataset
         for voltages at steps of 0.1 by interpolating existing data.
 
         Args:
@@ -59,29 +59,24 @@ class ThrusterInterface(object):
                                dictionary with thrust for each pwm for a given voltage
         """
 
+        # parse T200 datasheet
         workbook = load_workbook(filename=thruster_datasheet_path)
-
         voltages = [10, 12, 14, 16, 18, 20]
-
-        # pwm values are the same for all voltages
         pwm_values = [cell[0].value for cell in workbook["10 V"]["A2":"A202"]]
-
-        # * 9.8 for converting from kg f to newton
         thrusts_dict = dict()
         for voltage in voltages:
             thrusts_dict[voltage] = [
                 cell[0].value * 9.8 for cell in workbook["%i V" % voltage]["F2":"F202"]
-            ]
+            ]  # * 9.8 for converting from kg f to newton
 
+        # create new dataset with voltage steps of 0.1 by interpolating
         new_voltage_steps = np.round(np.arange(10, 20.01, 0.1), decimals=1)
         thrusts_from_voltage = dict()
         for voltage in new_voltage_steps:
             thrusts_from_voltage[voltage] = []
-
         for i in range(len(pwm_values)):
             pwm = pwm_values[i]
             thrusts = [thrusts_dict[voltage][i] for voltage in voltages]
-
             interpolated_thrusts = np.interp(new_voltage_steps, voltages, thrusts)
 
             # save interpolated thrusts to dict
