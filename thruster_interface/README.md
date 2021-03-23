@@ -4,6 +4,7 @@ Maps desired thruster forces to corresponding pwm signals while taking battery v
 
 Subscribes to:
 * /thrust/thruster_forces
+* /auv/battery_level
 
 Publihses:
 * /pwm
