@@ -18,9 +18,7 @@ Params (default value in brackets):
 * __thruster datasheet path__ /thruster_interface/thruster_datasheet_path ($(find thruster_interface)/config/T200-Public-Performance-Data-10-20V-September-2019.xlsx)
 
 ## Dependencies
-* The [Adafruit Python PCA9685](https://github.com/adafruit/Adafruit_Python_PCA9685) driver
-`sudo pip install adafruit-pca9685`
 * The [NumPy](http://www.numpy.org/) Python library
 `sudo apt install python-numpy`
-* Working I2C
+* openpyxl
 
