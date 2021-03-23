@@ -19,19 +19,33 @@ class ThrusterInterface(object):
         self.thrust_forward_limit = thrust_forward_limit
         self.thrust_backward_limit = thrust_backward_limit
 
+        # create thruster to pwm lookup function
+        self.pwm_lookup = self.create_pwm_lookup_function(path_to_mapping)
+
+        # set up subscribers and publishers
         self.voltage = None
         self.voltage_sub = rospy.Subscriber(voltage_topic, Int32,
                                             self.voltage_cb)
         rospy.loginfo('waiting for voltage on {voltage_topic}..')
         rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
-        self.thrust_sub = rospy.Subscriber(thurster_forces_topic,
-                                           Float32, self.thrust_cb)
+        self.thrust_sub = rospy.Subscriber(thurster_forces_topic, Float32,
+                                           self.thrust_cb)
 
         self.output_to_zero()
         rospy.on_shutdown(self.output_to_zero)
 
         rospy.loginfo('Thruster interface initialized')
+
+    def create_pwm_lookup_function(self, path_to_mapping):
+        """Creates a function that can be used to find a good pwm value for a 
+        desired thrust and voltage level. The function parses a file with mappings from 
+        desired thrust to pwm values for blue robotics T200 thrusters at different voltage levels. 
+
+        Args:
+            path_to_mapping (String): [description]
+        """
+        pass
 
     def zero_thrust_msg(self):
         """creates a ThrusterForces message with all thrusts set to zero
@@ -95,8 +109,7 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
 
         for i in range(NUM_THRUSTERS):
-            pwm_microsecs = self.thrust_to_microsecs(
-                thrust[i]) + THRUST_OFFSET[i]
+            pwm_microsecs = self.pwm_lookup(thrust[i]) + THRUST_OFFSET[i]
 
             if THRUSTER_DIRECTION[i] == -1:
                 middle_value = 1500 + THRUST_OFFSET[i]
