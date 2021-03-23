@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from math import isnan, isinf
-import rospy
+import rospy, rospkg
 import numpy as np
 from openpyxl import load_workbook
 
@@ -35,7 +35,7 @@ class ThrusterInterface(object):
         # set up subscribers and publishers
         self.voltage = None
         self.voltage_sub = rospy.Subscriber(voltage_topic, Int32, self.voltage_cb)
-        rospy.loginfo("waiting for voltage on {voltage_topic}..")
+        rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
         rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
         self.thrust_sub = rospy.Subscriber(
@@ -140,12 +140,12 @@ class ThrusterInterface(object):
                 return self.zero_thrust_msg()
             if thrust > thrust_forward_limit:
                 rospy.logerr(
-                    "Thruster %i limited to maximum forward thrust %f N" % (thruster_number, thrust_forward_limit)
+                    "Thruster %i limited from %f to maximum forward thrust %f N" % (thruster_number, thrust, thrust_forward_limit)
                 )
                 thruster_forces[thruster_number] = thrust_forward_limit
             if thrust < thrust_reverse_limit:
                 rospy.logerr(
-                    "Thruster %i limited to maximum reverse thrust %f N" % (thruster_number, thrust_reverse_limit)
+                    "Thruster %i limited from %f to maximum reverse thrust %f N" % (thruster_number, thrust, thrust_reverse_limit)
                 )
                 thruster_forces[thruster_number] = thrust_reverse_limit
 
@@ -154,12 +154,12 @@ class ThrusterInterface(object):
     def limit_pwm(self, pwm, thruster_number):
         if pwm > 1900:
             rospy.logerr(
-                'Too high desired forward thrust pwm on thruster %i. Limited to upper limit 1900' % thruster_number
+                'Desired pwm on thruster %i limited from %i to upper limit 1900' % (thruster_number, pwm)
                 )
             return 1900
         if pwm < 1100:
             rospy.logerr(
-                'Too high desired reverse thrust pwm on thruster %i. Limited to lower limit 1100' % thruster_number
+                'Desired pwm on thruster %i limited from %i to lower limit 1100' % (thruster_number, pwm)
                 )
             return 1100
         return pwm
@@ -209,6 +209,8 @@ class ThrusterInterface(object):
 
 if __name__ == "__main__":
     rospy.init_node("thruster_interface", log_level=rospy.INFO)
+    rospack = rospkg.RosPack()
+    thruster_interface_path = rospack.get_path('thruster_interface')
 
     PWM_TOPIC = rospy.get_param("/thruster_interface/pwm_topic", default="/pwm")
     VOLTAGE_TOPIC = rospy.get_param(
@@ -220,7 +222,7 @@ if __name__ == "__main__":
 
     T200_DATASHEET_PATH = rospy.get_param(
         "/thruster_interface/thruster_datasheet_path",
-        default='config/T200-Public-Performance-Data-10-20V-September-2019.xlsx',
+        default="%s/config/T200-Public-Performance-Data-10-20V-September-2019.xlsx" % thruster_interface_path
     )
     NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num", default=8)
     THRUST_OFFSET = rospy.get_param("/propulsion/thrusters/offset")
