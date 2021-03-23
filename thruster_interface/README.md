@@ -1,6 +1,6 @@
 # thruster_interface
 
-Mapps desired thruster forces to corresponding pwm signals while taking battery voltage into consideration. 
+Maps desired thruster forces to corresponding pwm signals while taking battery voltage into consideration. 
 
 Subscribes to:
 * /thrust/thruster_forces
