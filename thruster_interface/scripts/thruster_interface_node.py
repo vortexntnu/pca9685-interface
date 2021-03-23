@@ -16,8 +16,6 @@ class ThrusterInterface(object):
         voltage_topic,
         thurster_forces_topic,
         pwm_topic,
-        thrust_forward_limit,
-        thrust_backward_limit,
         num_thrusters,
         thruster_directions,
         thruster_offsets,
@@ -26,10 +24,9 @@ class ThrusterInterface(object):
         self.num_thrusters = num_thrusters
         self.thruster_directions = thruster_directions
         self.thruter_offsets = thruster_offsets
-        self.thrust_forward_limit = thrust_forward_limit
-        self.thrust_backward_limit = thrust_backward_limit
 
         # create thruster to pwm lookup function
+        rospy.loginfo("Parsing and interpolating thruster datasheet..")
         (
             self.pwm_values,
             self.thrusts_from_voltage,
@@ -116,7 +113,7 @@ class ThrusterInterface(object):
             ThrusterForces: message with all thrusts set to zero
         """
         zero_thrust_msg = Float32()
-        for i in range(NUM_THRUSTERS):
+        for i in range(self.num_thrusters):
             zero_thrust_msg.data.append(0)
         return zero_thrust_msg
 
@@ -132,7 +129,10 @@ class ThrusterInterface(object):
         Returns:
             Float32: msg with achievable thrusts in newton
         """
-        if len(thrust_msg.data) != NUM_THRUSTERS:
+        thrust_forward_limit = self.thrusts_from_voltage[self.voltage][-1]
+        thrust_reverse_limit = self.thrusts_from_voltage[self.voltage][0]
+
+        if len(thrust_msg.data) != self.num_thrusters:
             rospy.logerr("Wrong number of thrusters, setting thrust to zero")
             return self.zero_thrust_msg()
 
@@ -141,16 +141,16 @@ class ThrusterInterface(object):
             if isnan(thrust) or isinf(thrust):
                 rospy.logerr("Desired thrust Nan or Inf, setting thrust to zero")
                 return self.zero_thrust_msg()
-            if thrust > self.thrust_forward_limit:
+            if thrust > thrust_forward_limit:
                 rospy.logerr(
                     "Thruster {thruster_number} limited to maximum forward thrust"
                 )
-                thrust_msg.data[thruster_number] = self.thrust_forward_limit
-            if thrust < self.thrust_backward_limit:
+                thrust_msg.data[thruster_number] = thrust_forward_limit
+            if thrust < thrust_reverse_limit:
                 rospy.logerr(
                     "Thruster {thruster_number} limited to maximum backward thrust"
                 )
-                thrust_msg.data[thruster_number] = self.thrust_backward_limit
+                thrust_msg.data[thruster_number] = thrust_reverse_limit
 
         return thrust_msg
 
@@ -164,14 +164,14 @@ class ThrusterInterface(object):
         thrust_msg = self.validate_and_limit_thrust(thrust_msg)
         thrust = list(thrust_msg.data)
 
-        microsecs = [None] * NUM_THRUSTERS
+        microsecs = [None] * self.num_thrusters
         pwm_msg = Pwm()
 
-        for i in range(NUM_THRUSTERS):
-            pwm_microsecs = self.pwm_lookup(thrust[i]) + THRUST_OFFSET[i]
+        for i in range(self.num_thrusters):
+            pwm_microsecs = self.pwm_lookup(thrust[i]) + self.thruter_offsets[i]
 
-            if THRUSTER_DIRECTION[i] == -1:
-                middle_value = 1500 + THRUST_OFFSET[i]
+            if self.thruster_directions[i] == -1:
+                middle_value = 1500 + self.thruter_offsets[i]
                 diff = pwm_microsecs - middle_value
                 pwm_microsecs = middle_value - diff
 
@@ -192,29 +192,36 @@ class ThrusterInterface(object):
         Args:
             voltage_msg (Int32): voltage in millivolt
         """
-        self.voltage = voltage_msg.data / 1000
+        self.voltage = np.round(voltage_msg.data / 1000, 1)
 
 
 if __name__ == "__main__":
     rospy.init_node("thruster_interface", log_level=rospy.INFO)
 
-    THRUST_RANGE_LIMIT = 100
-    NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num")
-    THRUST_OFFSET = rospy.get_param("/propulsion/thrusters/offset")
-    LOOKUP_THRUST = rospy.get_param("/propulsion/thrusters/characteristics/thrust")
-    LOOKUP_PULSE_WIDTH = rospy.get_param(
-        "/propulsion/thrusters/characteristics/pulse_width"
+    PWM_TOPIC = rospy.get_param("/thruster_interface/pwm_topic", default="/pwm")
+    VOLTAGE_TOPIC = rospy.get_param(
+        "/thruster_interface/voltage_topic", default="/auv/battery_level"
     )
+    DESIRED_THRUST_TOPIC = rospy.get_param(
+        "/thruster_interface/desired_thrust_topic", default="/thrust/thruster_forces"
+    )
+
+    T200_DATASHEET_PATH = rospy.get_param(
+        "/thruster_interface/thruster_datasheet_path",
+        default="$(find thruster_interface)/config/T200-Public-Performance-Data-10-20V-September-2019.xlsx",
+    )
+    NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num", default=8)
+    THRUST_OFFSET = rospy.get_param("/propulsion/thrusters/offset")
     THRUSTER_DIRECTION = rospy.get_param("/propulsion/thrusters/direction")
 
-    pwm_topic = "pwm"
-    voltage_topic = "/auv/battery_level"
-    thrust_topic = "/thrust/thruster_forces"
-
-    path_to_thruster_mapping = ""
-
     thruster_interface = ThrusterInterface(
-        path_to_thruster_mapping, voltage_topic, thrust_topic, pwm_topic
+        thruster_datasheet_path=T200_DATASHEET_PATH,
+        voltage_topic=VOLTAGE_TOPIC,
+        thrust_topic=DESIRED_THRUST_TOPIC,
+        pwm_topic=PWM_TOPIC,
+        num_thrusters=NUM_THRUSTERS,
+        thruster_directions=THRUSTER_DIRECTION,
+        thruster_offsets=THRUST_OFFSET,
     )
 
     rospy.spin()
