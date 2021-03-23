@@ -42,7 +42,8 @@ def create_pwm_lookup_function(path_to_mapping):
             
     def pwm_lookup(thrust, voltage):
         voltage_rounded = np.round(voltage, decimals=1)
-        return np.interp(thrust, thrusts_from_voltage[voltage_rounded], pwm_values)
+        pwm = np.interp(thrust, thrusts_from_voltage[voltage_rounded], pwm_values)
+        return int(np.round(pwm))
     
     return pwm_lookup
         
