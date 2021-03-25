@@ -1,17 +1,25 @@
 # thruster_interface
 
+Maps desired thruster forces to corresponding pwm signals while taking battery voltage into consideration. 
+
 Subscribes to:
 * /thrust/thruster_forces
+* /auv/battery_level
 
 Publihses:
- * /pwm
+* /pwm
+
+Params (default value in brackets):
+* __thruster offsets__ /propulsion/thrusters/offset
+* __thruster directions__ /propulsion/thrusters/direction
+* __number of thrusters__ /propulsion/thrusters/num (8)
+* __pwm topic__ /thruster_interface/pwm_topic (/pwm)
+* __battery voltage topic__ /thruster_interface/voltage_topic (/auv/battery_level)
+* __desired thrust topic__ /thruster_interface/desired_thrust_topic (/thrust/thruster_forces)
+* __thruster datasheet path__ /thruster_interface/thruster_datasheet_path ($(find thruster_interface)/config/T200-Public-Performance-Data-10-20V-September-2019.xlsx)
 
 ## Dependencies
-* The [Adafruit Python PCA9685](https://github.com/adafruit/Adafruit_Python_PCA9685) driver
-`sudo pip install adafruit-pca9685`
 * The [NumPy](http://www.numpy.org/) Python library
 `sudo apt install python-numpy`
-* Working I2C
+* openpyxl
 
-## Notes
-To run the node without a PCA9685 connected, set `thrusters_connected = false` in the launch script. To connect the PWM board to the Raspberry Pi (or other host computer) connect VCC to a 3.3 V pin, SCL to SCL, SDA to SDA, and ground to ground.
