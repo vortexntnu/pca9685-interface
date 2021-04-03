@@ -90,7 +90,7 @@ class ThrusterInterface(object):
 
         Args:
             thrust (Float32): desired thruster forces
-            voltage (Int32): battery voltage
+            voltage (Float): battery voltage
 
         Returns:
             Int: pwm signal 
@@ -171,6 +171,10 @@ class ThrusterInterface(object):
         Args:
             thrust_msg (Float32): desired thruster forces in newton
         """
+	if not (10 <= self.voltage <= 20):
+            rospy.logerr("voltage of %d is outside range [10,20]. Ignoring thrust command..")
+            return
+
         thrust_msg = self.validate_and_limit_thrust(thrust_msg)
         thrust = list(thrust_msg.data)
 
@@ -199,12 +203,12 @@ class ThrusterInterface(object):
         self.thrust_cb(zero_thrust_msg)
 
     def voltage_cb(self, voltage_msg):
-        """Maps voltage from millivolt to volts and saves it
+        """Maps voltage from volt to volts and saves it
 
         Args:
-            voltage_msg (Int32): voltage in millivolt
+            voltage_msg (Int32): voltage in volt
         """
-        self.voltage = np.round(voltage_msg.data / 1000, 1)
+        self.voltage = np.round(voltage_msg.data, 1)
 
 
 if __name__ == "__main__":
