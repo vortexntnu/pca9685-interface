@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
     PWM_TOPIC = rospy.get_param("/thruster_interface/pwm_topic", default="/pwm")
     VOLTAGE_TOPIC = rospy.get_param(
-        "/thruster_interface/voltage_topic", default="/auv/battery_level"
+        "/thruster_interface/voltage_topic", default="/auv/battery_level/system"
     )
     DESIRED_THRUST_TOPIC = rospy.get_param(
         "/thruster_interface/desired_thrust_topic", default="/thrust/thruster_forces"
