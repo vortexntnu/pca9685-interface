@@ -40,7 +40,7 @@ class Pca9685InterfaceNode(object):
                     pulse_log.append(pulse)
                     self.pca9685.set_pwm(msg.pins[i], PWM_ON, pulse)
                     self.current_pwm[msg.pins[i]] = msg.positive_width_us[i]
-        rospy.loginfo(pulse_log)
+        rospy.logdebug(pulse_log)
 
     def microsecs_to_bits(self, microsecs):
         duty_cycle_normalized = microsecs / PERIOD_LENGTH_IN_MICROSECONDS
