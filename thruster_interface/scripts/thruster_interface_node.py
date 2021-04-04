@@ -5,7 +5,7 @@ import rospy, rospkg
 import numpy as np
 from openpyxl import load_workbook
 
-from std_msgs.msg import Int32, Float32MultiArray
+from std_msgs.msg import Float32, Float32MultiArray
 from vortex_msgs.msg import Pwm
 
 
@@ -34,9 +34,9 @@ class ThrusterInterface(object):
 
         # set up subscribers and publishers
         self.voltage = None
-        self.voltage_sub = rospy.Subscriber(voltage_topic, Int32, self.voltage_cb)
+        self.voltage_sub = rospy.Subscriber(voltage_topic, Float32, self.voltage_cb)
         rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
-        rospy.wait_for_message(voltage_topic, Int32)  # voltage must be set
+        rospy.wait_for_message(voltage_topic, Float32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=10)
         self.thrust_sub = rospy.Subscriber(
             thurster_forces_topic, Float32MultiArray, self.thrust_cb
@@ -206,7 +206,7 @@ class ThrusterInterface(object):
         """Maps voltage from volt to volts and saves it
 
         Args:
-            voltage_msg (Int32): voltage in volt
+            voltage_msg (Float32): voltage in volt
         """
         self.voltage = np.round(voltage_msg.data, 1)
 
