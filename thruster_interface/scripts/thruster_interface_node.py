@@ -3,6 +3,7 @@
 from math import isnan, isinf
 import rospy, rospkg
 import numpy as np
+from scipy.interpolate import interp1d
 from openpyxl import load_workbook
 
 from std_msgs.msg import Float32, Float32MultiArray
@@ -30,6 +31,7 @@ class ThrusterInterface(object):
         (
             self.pwm_values,
             self.thrusts_from_voltage,
+            self.pwm_from_thrust,
         ) = self.parse_and_interpolate_thruster_data(thruster_datasheet_path)
 
         # set up subscribers and publishers
@@ -55,8 +57,10 @@ class ThrusterInterface(object):
             thruster_datasheet_path (string): path to T200 thruster dataseheet
 
         Returns:
-            Tuple[list, dict]: array with pwm values and
-                               dictionary with thrust for each pwm for a given voltage
+            list: all possible pwm values
+            dict[float]: dictionary with thrust for each pwm for a given voltage
+            dict[float]: dictionary with thrust_to_pwm interpolation function 
+                            for a given voltage
         """
 
         # parse T200 datasheet
@@ -83,7 +87,12 @@ class ThrusterInterface(object):
             for (voltage, thrust) in zip(new_voltage_steps, interpolated_thrusts):
                 thrusts_from_voltage[voltage].append(thrust)
 
-        return (pwm_values, thrusts_from_voltage)
+        # create pwm_lookup functions by 1d interpolation of thrusts at each voltage level
+        thrust_to_pwm = dict()
+        for voltage in new_voltage_steps:
+            thrust_to_pwm[voltage] = interp1d(thrusts_from_voltage[voltage], pwm_values, kind='slinear')
+
+        return (pwm_values, thrusts_from_voltage, thrust_to_pwm)
 
     def pwm_lookup(self, thrust, voltage):
         """finds a good pwm value for a desired thrust and a battery voltage
@@ -95,11 +104,12 @@ class ThrusterInterface(object):
         Returns:
             Int: pwm signal 
         """
-        voltage_rounded = np.round(voltage, decimals=1)
-        pwm = np.interp(
-            thrust, self.thrusts_from_voltage[voltage_rounded], self.pwm_values
-        )
-        return int(np.round(pwm))
+        if thrust == 0:  # neccessary since multiple pwms map to zero thrust, which confuses the interpolation
+            return 1500
+        else: 
+            voltage_rounded = np.round(voltage, decimals=1)
+            pwm = self.pwm_from_thrust[voltage_rounded](thrust)
+            return int(np.round(pwm))
 
     def zero_thrust_msg(self):
         """creates a ThrusterForces message with all thrusts set to zero
