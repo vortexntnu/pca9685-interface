@@ -15,7 +15,6 @@ PWM_ON = 0 # Start of duty cycle
 class Pca9685InterfaceNode(object):
     def __init__(self):
         rospy.init_node('pwm_node')
-        self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
 
         addr = rospy.get_param('/i2c/address')
         bus = rospy.get_param('/i2c/bus')
@@ -24,11 +23,12 @@ class Pca9685InterfaceNode(object):
             self.pca9685.set_pwm_freq(FREQUENCY)
             self.pca9685.set_all_pwm(0, 0)
             self.current_pwm = [0]*16
+            rospy.signal_shutdown("Could not set up connection to PCA9685")
         except Exception as e:
             rospy.logerr(e)
 
         rospy.on_shutdown(self.shutdown)
-
+        self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
         rospy.loginfo('Initialized for {0} Hz.'.format(FREQUENCY))
 
     def callback(self, msg):
