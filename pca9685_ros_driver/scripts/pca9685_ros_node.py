@@ -22,9 +22,9 @@ class Pca9685InterfaceNode(object):
             self.pca9685.set_pwm_freq(FREQUENCY)
             self.pca9685.set_all_pwm(0, 0)
             self.current_pwm = [0]*16
-            rospy.signal_shutdown("Could not set up connection to PCA9685")
         except Exception as e:
             rospy.logerr(e)
+            rospy.signal_shutdown("Could not set up connection to PCA9685")
 
         self.sub = rospy.Subscriber('/pwm', Pwm, self.callback, queue_size=1)
         rospy.on_shutdown(self.shutdown)
