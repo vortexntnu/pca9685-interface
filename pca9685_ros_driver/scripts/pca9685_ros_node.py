@@ -14,8 +14,6 @@ PWM_ON = 0 # Start of duty cycle
 
 class Pca9685InterfaceNode(object):
     def __init__(self):
-        rospy.init_node('pwm_node')
-        self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
 
         addr = rospy.get_param('/i2c/address')
         bus = rospy.get_param('/i2c/bus')
@@ -27,6 +25,7 @@ class Pca9685InterfaceNode(object):
         except Exception as e:
             rospy.logerr(e)
 
+        self.sub = rospy.Subscriber('pwm', Pwm, self.callback, queue_size=1)
         rospy.on_shutdown(self.shutdown)
 
         rospy.loginfo('Initialized for {0} Hz.'.format(FREQUENCY))
@@ -54,10 +53,7 @@ class Pca9685InterfaceNode(object):
         self.pca9685.set_all_pwm(0, 0)
 
 if __name__ == '__main__':
-    try:
-        pwm_node = Pca9685InterfaceNode()
-        rospy.spin()
-    except IOError:
-        rospy.logerr('IOError caught, shutting down.')
-    except rospy.ROSInterruptException:
-        pass
+    rospy.init_node('pwm_node')
+    pwm_node = Pca9685InterfaceNode()
+    rospy.spin()
+
