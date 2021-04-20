@@ -32,7 +32,6 @@ class ThrusterInterface(object):
             self.pwm_values,
             self.thrusts_from_voltage,
             self.thrust_to_pwm,
-            self.pwm_to_thrust,
         ) = self.parse_and_interpolate_thruster_data(thruster_datasheet_path)
 
         # set up subscribers and publishers
@@ -64,8 +63,6 @@ class ThrusterInterface(object):
             list: all possible pwm values
             dict[float]: dictionary with thrust for each pwm for a given voltage
             dict[float]: dictionary with thrust_to_pwm interpolation functions
-                            for a given voltage
-            dict[float]: dictionary with pwm_to_thrust interpolation functions
                             for a given voltage
         """
 
@@ -100,14 +97,7 @@ class ThrusterInterface(object):
                 thrusts_from_voltage[voltage], pwm_values, kind="slinear"
             )
 
-        # create thrust_lookup functions through the same procedure
-        pwm_to_thrust = dict()
-        for voltage in new_voltage_steps:
-            pwm_to_thrust[voltage] = interp1d(
-                pwm_values, thrusts_from_voltage[voltage], kind="slinear"
-            )
-
-        return (pwm_values, thrusts_from_voltage, thrust_to_pwm, pwm_to_thrust)
+        return (pwm_values, thrusts_from_voltage, thrust_to_pwm)
 
     def pwm_lookup(self, thrust, voltage):
         """finds a good pwm value for a desired thrust and a battery voltage
@@ -240,8 +230,8 @@ class ThrusterInterface(object):
             return
 
         # validate thrust
-        thrust_msg = self.validate_and_limit_thrust(thrust_msg)
-        thrust = list(thrust_msg.data)
+        validated_thrust_msg = self.validate_and_limit_thrust(thrust_msg)
+        thrust = list(validated_thrust_msg.data)
 
         # calculate pwm values from desired thrust and system voltage
         microsecs = [None] * self.num_thrusters
@@ -262,13 +252,8 @@ class ThrusterInterface(object):
         pwm_msg.positive_width_us = np.array(microsecs).astype("uint16")
         self.pwm_pub.publish(pwm_msg)
 
-        # calculate and publish delivered thrust (for data collection purposes)
-        delivered_thrusts = [
-            self.thrust_from_pwm(pwm - offset)
-            for pwm, offset in zip(pwm_msg.positive_width_us, self.thruster_offsets)
-        ]
-        delivered_thurst_msg = Float32MultiArray(data=delivered_thrusts)
-        self.delivered_thrust_pub.publish(delivered_thurst_msg)
+        # publish delivered thrust (for data collection purposes)
+        self.delivered_thrust_pub.publish(validated_thrust_msg)
 
 
 if __name__ == "__main__":
