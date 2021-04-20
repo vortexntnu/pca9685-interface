@@ -44,7 +44,7 @@ class ThrusterInterface(object):
             thurster_forces_topic, Float32MultiArray, self.thrust_cb
         )
         self.delivered_thrust_pub = rospy.Publisher(
-            "delivered_forces", Float32MultiArray, queue_size=1
+            "/thrust/delivered_forces", Float32MultiArray, queue_size=1
         )
 
         self.output_to_zero()
