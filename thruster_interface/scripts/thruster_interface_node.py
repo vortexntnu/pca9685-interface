@@ -2,7 +2,6 @@
 
 from math import isnan, isinf
 from collections import deque
-from statistics import mean
 import numpy as np
 from scipy.interpolate import interp1d
 from openpyxl import load_workbook
