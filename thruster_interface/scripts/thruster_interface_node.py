@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 from math import isnan, isinf
-import rospy, rospkg
+from collections import deque
+from statistics import mean
 import numpy as np
 from scipy.interpolate import interp1d
 from openpyxl import load_workbook
 
+import rospy, rospkg
 from std_msgs.msg import Float32, Float32MultiArray
 from vortex_msgs.msg import Pwm
 
@@ -35,7 +37,7 @@ class ThrusterInterface(object):
         ) = self.parse_and_interpolate_thruster_data(thruster_datasheet_path)
 
         # set up subscribers and publishers
-        self.voltage = None
+        self.voltage_queue = deque([0,0,0,0,0])
         self.voltage_sub = rospy.Subscriber(voltage_topic, Float32, self.voltage_cb)
         rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
         rospy.wait_for_message(voltage_topic, Float32)  # voltage must be set
@@ -129,6 +131,13 @@ class ThrusterInterface(object):
             zero_thrust_msg.data.append(0)
         return zero_thrust_msg
 
+    def get_voltage(self):
+        return np.round(sum(self.voltage_queue) / len(self.voltage_queue), 1)
+
+    def add_voltage(self, voltage):
+        self.voltage_queue.popleft()
+        self.voltage_queue.append(voltage)
+
     def validate_and_limit_thrust(self, thrust_msg):
         """limits a thrust value to achieveable maximum and minumum values and
         performs sanity checks on the message. Returns zero thrust is desired
@@ -142,6 +151,7 @@ class ThrusterInterface(object):
             Float32: msg with achievable thrusts in newton
         """
         thruster_forces = list(thrust_msg.data)
+        voltage = self.get_voltage()
 
         if len(thrust_msg.data) != self.num_thrusters:
             rospy.logerr("Wrong number of thrusters, setting thrust to zero")
@@ -149,11 +159,11 @@ class ThrusterInterface(object):
 
         for thruster_number in range(len(thrust_msg.data)):
 
-            forward_limit = self.thrusts_from_voltage[self.voltage][
-                -self.thruster_offsets[thruster_number] / 4 - 1
-            ]  # 4 because of steps provided in T200 datasheet, 1 because of a quick hack
-            reverse_limit = self.thrusts_from_voltage[self.voltage][
-                self.thruster_offsets[thruster_number] / 4 + 1
+            forward_limit = self.thrusts_from_voltage[voltage][
+                -self.thruster_offsets[thruster_number] / 4 - 5
+            ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
+            reverse_limit = self.thrusts_from_voltage[voltage][
+                self.thruster_offsets[thruster_number] / 4 + 5
             ]
             thrust = thrust_msg.data[thruster_number]
 
@@ -201,7 +211,7 @@ class ThrusterInterface(object):
         Args:
             voltage_msg (Float32): voltage in volt
         """
-        self.voltage = np.round(voltage_msg.data, 1)
+        self.add_voltage(voltage_msg.data)
 
     def thrust_from_pwm(self, pwm):
         """returns thrust for a given pwm, taking system voltage into account.
@@ -212,7 +222,7 @@ class ThrusterInterface(object):
         Returns:
             double: thrust value
         """
-        return self.pwm_to_thrust[self.voltage](pwm)
+        return self.pwm_to_thrust[self.get_voltage()](pwm)
 
     def thrust_cb(self, thrust_msg):
         """Takes inn desired thruster forces and publishes
@@ -223,7 +233,8 @@ class ThrusterInterface(object):
         """
 
         # check that voltage is within range
-        if not (10 <= self.voltage <= 20):
+        voltage = self.get_voltage()
+        if not (10 <= voltage <= 20):
             rospy.logerr(
                 "voltage of %d is outside range [10,20]. Ignoring thrust command.."
             )
@@ -238,7 +249,7 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
         for i in range(self.num_thrusters):
             pwm_microsecs = (
-                self.pwm_lookup(thrust[i], self.voltage) + self.thruster_offsets[i]
+                self.pwm_lookup(thrust[i], voltage) + self.thruster_offsets[i]
             )
             if self.thruster_directions[i] == -1:
                 middle_value = 1500 + self.thruster_offsets[i]
