@@ -37,7 +37,7 @@ class ThrusterInterface(object):
         ) = self.parse_and_interpolate_thruster_data(thruster_datasheet_path)
 
         # set up subscribers and publishers
-        self.voltage_queue = deque([0,0,0,0,0])
+        self.voltage_queue = deque([0]*10)
         self.voltage_sub = rospy.Subscriber(voltage_topic, Float32, self.voltage_cb)
         rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
         rospy.wait_for_message(voltage_topic, Float32)  # voltage must be set
