@@ -15,8 +15,8 @@ PWM_ON = 0 # Start of duty cycle
 class Pca9685InterfaceNode(object):
     def __init__(self):
 
-        addr = rospy.get_param('/i2c/address')
-        bus = rospy.get_param('/i2c/bus')
+        addr = rospy.get_param('/i2c/pca9685/address')
+        bus = rospy.get_param('/i2c/pca9685/bus')
         try:
             self.pca9685 = Adafruit_PCA9685.PCA9685(address=addr, busnum=bus)
             self.pca9685.set_pwm_freq(FREQUENCY)
