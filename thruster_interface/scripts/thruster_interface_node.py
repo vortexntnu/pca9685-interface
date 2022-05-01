@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 from math import isnan, isinf
 from collections import deque
@@ -38,8 +38,8 @@ class ThrusterInterface(object):
         # set up subscribers and publishers
         self.voltage_queue = deque([10]*10)
         self.voltage_sub = rospy.Subscriber(voltage_topic, Float32, self.voltage_cb)
-        rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
-        rospy.wait_for_message(voltage_topic, Float32)  # voltage must be set
+        #rospy.loginfo("waiting for voltage on %s.." % voltage_topic)
+        #rospy.wait_for_message(voltage_topic, Float32)  # voltage must be set
         self.pwm_pub = rospy.Publisher(pwm_topic, Pwm, queue_size=1)
         self.thrust_sub = rospy.Subscriber(
             thurster_forces_topic, Float32MultiArray, self.thrust_cb
