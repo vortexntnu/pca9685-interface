@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 from math import isnan, isinf
 from collections import deque
@@ -159,10 +159,10 @@ class ThrusterInterface(object):
         for thruster_number in range(len(thrust_msg.data)):
 
             forward_limit = self.thrusts_from_voltage[voltage][
-                -self.thruster_offsets[thruster_number] / 4 - 5
+                -self.thruster_offsets[thruster_number] // 4 - 5
             ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
             reverse_limit = self.thrusts_from_voltage[voltage][
-                self.thruster_offsets[thruster_number] / 4 + 5
+                self.thruster_offsets[thruster_number] // 4 + 5
             ]
             thrust = thrust_msg.data[thruster_number]
 
