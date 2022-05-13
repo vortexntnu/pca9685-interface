@@ -26,7 +26,7 @@ class ThrusterInterface(object):
         self.num_thrusters = num_thrusters
         self.thruster_directions = thruster_directions
         self.thruster_offsets = thruster_offsets
-
+        self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
         (
@@ -248,7 +248,7 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
         for i in range(self.num_thrusters):
             pwm_microsecs = (
-                self.pwm_lookup(thrust[i], voltage) + self.thruster_offsets[i]
+                self.pwm_lookup(thrust[self.thruster_map[i]], voltage) + self.thruster_offsets[i]
             )
             if self.thruster_directions[i] == -1:
                 middle_value = 1500 + self.thruster_offsets[i]
