@@ -1,6 +1,8 @@
 <launch>
   <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}] [${node}]: ${message}" />
 
+  <rosparam command="load" file="$(find auv_setup)/config/robots/beluga.yaml" />
+
   <param name="thruster_interface/thrusters_connected" type="bool" value="true" />
 
   <node name="thruster_interface" pkg="thruster_interface" type="thruster_interface_node.py" output="screen" />

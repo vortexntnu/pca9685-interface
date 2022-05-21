@@ -26,7 +26,7 @@ class ThrusterInterface(object):
         self.num_thrusters = num_thrusters
         self.thruster_directions = thruster_directions
         self.thruster_offsets = thruster_offsets
-
+        self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
         (
@@ -159,10 +159,10 @@ class ThrusterInterface(object):
         for thruster_number in range(len(thrust_msg.data)):
 
             forward_limit = self.thrusts_from_voltage[voltage][
-                -self.thruster_offsets[thruster_number] / 4 - 5
+                -self.thruster_offsets[thruster_number] // 4 - 5
             ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
             reverse_limit = self.thrusts_from_voltage[voltage][
-                self.thruster_offsets[thruster_number] / 4 + 5
+                self.thruster_offsets[thruster_number] // 4 + 5
             ]
             thrust = thrust_msg.data[thruster_number]
 
@@ -248,7 +248,7 @@ class ThrusterInterface(object):
         pwm_msg = Pwm()
         for i in range(self.num_thrusters):
             pwm_microsecs = (
-                self.pwm_lookup(thrust[i], voltage) + self.thruster_offsets[i]
+                self.pwm_lookup(thrust[self.thruster_map[i]], voltage) + self.thruster_offsets[i]
             )
             if self.thruster_directions[i] == -1:
                 middle_value = 1500 + self.thruster_offsets[i]
