@@ -153,7 +153,6 @@ class ThrusterInterface(object):
         voltage = self.get_voltage()
 
         if len(thrust_msg.data) != self.num_thrusters:
-            rospy.logerr("Wrong number of thrusters, setting thrust to zero")
             return self.zero_thrust_msg()
 
         for thruster_number in range(len(thrust_msg.data)):
@@ -167,35 +166,18 @@ class ThrusterInterface(object):
             thrust = thrust_msg.data[thruster_number]
 
             if isnan(thrust) or isinf(thrust):
-                rospy.logerr("Desired thrust Nan or Inf, setting thrust to zero")
                 return self.zero_thrust_msg()
             if thrust > forward_limit:
-                rospy.logwarn(
-                    "Thruster %i limited from %f to maximum forward thrust %f N"
-                    % (thruster_number, thrust, forward_limit)
-                )
                 thruster_forces[thruster_number] = forward_limit
             if thrust < reverse_limit:
-                rospy.logwarn(
-                    "Thruster %i limited from %f to maximum reverse thrust %f N"
-                    % (thruster_number, thrust, reverse_limit)
-                )
                 thruster_forces[thruster_number] = reverse_limit
 
         return Float32MultiArray(data=thruster_forces)
 
-    def limit_pwm(self, pwm, thruster_number):
+    def limit_pwm(self, pwm):
         if pwm > 1900:
-            rospy.logerr(
-                "Desired pwm on thruster %i limited from %i to upper limit 1900"
-                % (thruster_number, pwm)
-            )
             return 1900
         if pwm < 1100:
-            rospy.logerr(
-                "Desired pwm on thruster %i limited from %i to lower limit 1100"
-                % (thruster_number, pwm)
-            )
             return 1100
         return pwm
 
@@ -234,9 +216,6 @@ class ThrusterInterface(object):
         # check that voltage is within range
         voltage = self.get_voltage()
         if not (10 <= voltage <= 20):
-            rospy.logerr(
-                "voltage of %d is outside range [10,20]. Ignoring thrust command.."
-            )
             return
 
         # validate thrust
@@ -250,13 +229,13 @@ class ThrusterInterface(object):
             pwm_microsecs = (
                 self.pwm_lookup(thrust[self.thruster_map[i]], voltage) + self.thruster_offsets[i]
             )
-            if self.thruster_directions[i] == -1:
-                middle_value = 1500 + self.thruster_offsets[i]
+            if self.thruster_directions[thrust[self.thruster_map[i]] == -1:
+                middle_value = 1500 + self.thruster_offsets[thrust[self.thruster_map[i]]
                 diff = pwm_microsecs - middle_value
                 pwm_microsecs = middle_value - diff
-            pwm_microsecs = self.limit_pwm(pwm_microsecs, i)
-            microsecs[i] = pwm_microsecs
-            pwm_msg.pins.append(i)
+            pwm_microsecs = self.limit_pwm(pwm_microsecs)
+            microsecs[thrust[self.thruster_map[i]] = pwm_microsecs
+            pwm_msg.pins.append(thrust[self.thruster_map[i])
 
         # publish pwm
         pwm_msg.positive_width_us = np.array(microsecs).astype("uint16")
