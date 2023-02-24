@@ -229,7 +229,7 @@ class ThrusterInterface(object):
             pwm_microsecs = (
                 self.pwm_lookup(thrust[self.thruster_map[i]], voltage) + self.thruster_offsets[i]
             )
-            if self.thruster_directions[[self.thruster_map[i]] == -1:
+            if self.thruster_directions[self.thruster_map[i]] == -1:
                 middle_value = 1500 + self.thruster_offsets[self.thruster_map[i]]
                 diff = pwm_microsecs - middle_value
                 pwm_microsecs = middle_value - diff
