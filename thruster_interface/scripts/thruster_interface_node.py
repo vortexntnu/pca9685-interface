@@ -26,7 +26,15 @@ class ThrusterInterface(object):
         self.num_thrusters = num_thrusters
         self.thruster_directions = thruster_directions
         self.thruster_offsets = thruster_offsets
+
+        self.thruster_operational_voltage_range = rospy.get_param("/propulsion/thrusters/thrusters_operational_voltage_range"),
+        self.thruster_operational_voltage_min = self.thruster_operational_voltage_range[0]
+        self.thruster_operational_voltage_max = self.thruster_operational_voltage_range[1]
+
         self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
+        self.thrust_limit_reverse = rospy.get_param("/propulsion/thrusters/thrust_limit_reverse"),
+        self.thrust_limit_forward = rospy.get_param("/propulsion/thrusters/thrust_limit_forward"),
+
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
         (
@@ -152,25 +160,32 @@ class ThrusterInterface(object):
         thruster_forces = list(thrust_msg.data)
         voltage = self.get_voltage()
 
+        if voltage < self.thruster_operational_voltage_min:
+            return self.zero_thrust_msg()
+        if voltage > self.thruster_operational_voltage_max:
+            return self.zero_thrust_msg()
+
         if len(thrust_msg.data) != self.num_thrusters:
             return self.zero_thrust_msg()
 
         for thruster_number in range(len(thrust_msg.data)):
-
+            """ Comented out to test stuff -> Delete later ===============================================================
             forward_limit = self.thrusts_from_voltage[voltage][
                 -self.thruster_offsets[thruster_number] // 4 - 5
             ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
             reverse_limit = self.thrusts_from_voltage[voltage][
                 self.thruster_offsets[thruster_number] // 4 + 5
             ]
+            """
+
             thrust = thrust_msg.data[thruster_number]
 
             if isnan(thrust) or isinf(thrust):
                 return self.zero_thrust_msg()
-            if thrust > forward_limit:
-                thruster_forces[thruster_number] = forward_limit
-            if thrust < reverse_limit:
-                thruster_forces[thruster_number] = reverse_limit
+            if thrust > self.thrust_limit_forward[thruster_number]:
+                thruster_forces[thruster_number] = self.thrust_limit_forward[thruster_number]
+            if thrust < self.thrust_limit_reverse[thruster_number]:
+                thruster_forces[thruster_number] = self.thrust_limit_reverse[thruster_number]
 
         return Float32MultiArray(data=thruster_forces)
 
