@@ -27,13 +27,14 @@ class ThrusterInterface(object):
         self.thruster_directions = thruster_directions
         self.thruster_offsets = thruster_offsets
 
-        self.thruster_operational_voltage_range = rospy.get_param("/propulsion/thrusters/thrusters_operational_voltage_range"),
+        self.thruster_operational_voltage_range = rospy.get_param("/propulsion/thrusters/thrusters_operational_voltage_range")
         self.thruster_operational_voltage_min = self.thruster_operational_voltage_range[0]
         self.thruster_operational_voltage_max = self.thruster_operational_voltage_range[1]
 
         self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
-        self.thrust_limit_reverse = rospy.get_param("/propulsion/thrusters/thrust_limit_reverse"),
-        self.thrust_limit_forward = rospy.get_param("/propulsion/thrusters/thrust_limit_forward"),
+        self.pwm_limit = rospy.get_param("/propulsion/thrusters/pwm_limit")
+        self.pwm_limit_min = self.pwm_limit[0]
+        self.pwm_limit_max = self.pwm_limit[1]
 
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
@@ -144,7 +145,7 @@ class ThrusterInterface(object):
     def add_voltage(self, voltage):
         self.voltage_queue.popleft()
         self.voltage_queue.append(voltage)
-
+        
     def validate_and_limit_thrust(self, thrust_msg):
         """limits a thrust value to achieveable maximum and minumum values and
         performs sanity checks on the message. Returns zero thrust is desired
@@ -160,40 +161,33 @@ class ThrusterInterface(object):
         thruster_forces = list(thrust_msg.data)
         voltage = self.get_voltage()
 
-        if voltage < self.thruster_operational_voltage_min:
-            return self.zero_thrust_msg()
-        if voltage > self.thruster_operational_voltage_max:
-            return self.zero_thrust_msg()
-
         if len(thrust_msg.data) != self.num_thrusters:
             return self.zero_thrust_msg()
 
         for thruster_number in range(len(thrust_msg.data)):
-            """ Comented out to test stuff -> Delete later ===============================================================
+
             forward_limit = self.thrusts_from_voltage[voltage][
                 -self.thruster_offsets[thruster_number] // 4 - 5
             ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
             reverse_limit = self.thrusts_from_voltage[voltage][
                 self.thruster_offsets[thruster_number] // 4 + 5
             ]
-            """
-
             thrust = thrust_msg.data[thruster_number]
 
             if isnan(thrust) or isinf(thrust):
                 return self.zero_thrust_msg()
-            if thrust > self.thrust_limit_forward[thruster_number]:
-                thruster_forces[thruster_number] = self.thrust_limit_forward[thruster_number]
-            if thrust < self.thrust_limit_reverse[thruster_number]:
-                thruster_forces[thruster_number] = self.thrust_limit_reverse[thruster_number]
+            if thrust > forward_limit:
+                thruster_forces[thruster_number] = forward_limit
+            if thrust < reverse_limit:
+                thruster_forces[thruster_number] = reverse_limit
 
         return Float32MultiArray(data=thruster_forces)
 
     def limit_pwm(self, pwm):
-        if pwm > 1900:
-            return 1900
-        if pwm < 1100:
-            return 1100
+        if pwm > self.pwm_limit_max:
+            return self.pwm_limit_max
+        if pwm < self.pwm_limit_min:
+            return self.pwm_limit_min
         return pwm
 
     def output_to_zero(self):
@@ -230,7 +224,9 @@ class ThrusterInterface(object):
 
         # check that voltage is within range
         voltage = self.get_voltage()
-        if not (10 <= voltage <= 20):
+        rospy.loginfo(f"Voltage now: {voltage}")
+        if not (self.thruster_operational_voltage_min <= voltage <= self.thruster_operational_voltage_max):
+            self.STOP_thrusters()
             return
 
         # validate thrust
@@ -259,6 +255,21 @@ class ThrusterInterface(object):
         # publish delivered thrust (for data collection purposes)
         self.delivered_thrust_pub.publish(validated_thrust_msg)
 
+    def STOP_thrusters(self):
+        # calculate pwm values to STOP thusters thusters
+        microsecs = [None] * self.num_thrusters
+        pwm_msg = Pwm()
+        for i in range(self.num_thrusters):
+            middle_value = 1500 + self.thruster_offsets[self.thruster_map[i]]
+            microsecs[self.thruster_map[i]] = middle_value # Thrust to 0%
+            pwm_msg.pins.append(self.thruster_map[i])
+
+        # publish pwm
+        pwm_msg.positive_width_us = np.array(microsecs).astype("uint16")
+        self.pwm_pub.publish(pwm_msg)
+
+        # publish delivered thrust (for data collection purposes)
+        self.delivered_thrust_pub.publish(self.zero_thrust_msg())
 
 if __name__ == "__main__":
     rospy.init_node("thruster_interface", log_level=rospy.INFO)
