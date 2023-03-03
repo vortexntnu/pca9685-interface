@@ -72,10 +72,19 @@ class ThrusterInterface(object):
         rospy.loginfo("Thruster interface initialized")
 
     def map_percentage_to_pwm(self, percentage, rangeStart, rangeEnd):
-        if percentage < -1.0:
-            percentage = -1.0
-        elif percentage > 1.0:
-            percentage = 1.0
+        """maps percentage values from -1.9 to 1.0 into start and range pwm signal
+
+        Args:
+            percentage: Percentage that will be maped [-1.0, 1.0]
+            rangeStart: PWM sart range
+            rangeEnd: PWM end range
+
+        Returns:
+            list: all possible pwm values
+            dict[float]: dictionary with thrust for each pwm for a given voltage
+            dict[float]: dictionary with thrust_to_pwm interpolation functions
+                            for a given voltage
+        """
 
         pwmSignal = int(((percentage + 1) / 2) * (rangeEnd - rangeStart) + rangeStart)
         return pwmSignal
@@ -200,11 +209,28 @@ class ThrusterInterface(object):
 
         return Float32MultiArray(data=thruster_forces)
 
-    def limit_pwm(self, pwm):
-        if pwm > self.pwm_limit_max:
-            return self.pwm_limit_max
-        if pwm < self.pwm_limit_min:
-            return self.pwm_limit_min
+    def limit_pwm(self, pwm, i):
+        """limits pwm to a preset amount, has a hardcoded limiter for min/max values just in case
+        Args:
+            pwm (Int): a pwm value
+            i: thruster nr.?
+
+        Returns:
+            double: int limited pwm value
+        """
+
+        # Softcoded limit that can be changed
+        if pwm > (self.pwm_limit_max + self.thruster_offsets[self.thruster_map[i]]):
+            pwm = self.pwm_limit_max + self.thruster_offsets[self.thruster_map[i]]
+        elif pwm < (self.pwm_limit_min + self.thruster_offsets[self.thruster_map[i]]):
+            pwm = self.pwm_limit_min + self.thruster_offsets[self.thruster_map[i]]
+
+        # A hardcoded limit if someone sets thrust ofset to high, we limit it to 1900 or 1100 PWM
+        if pwm > 1900:
+            return 1900
+        elif pwm < 1100:
+            return 1100
+
         return pwm
 
     def output_to_zero(self):
@@ -261,11 +287,12 @@ class ThrusterInterface(object):
                 self.pwm_lookup(thrust[self.thruster_map[i]], voltage)
                 + self.thruster_offsets[i]
             )
+
             if self.thruster_directions[self.thruster_map[i]] == -1:
                 middle_value = 1500 + self.thruster_offsets[self.thruster_map[i]]
                 diff = pwm_microsecs - middle_value
                 pwm_microsecs = middle_value - diff
-            pwm_microsecs = self.limit_pwm(pwm_microsecs)
+            pwm_microsecs = self.limit_pwm(pwm_microsecs, i)
             microsecs[self.thruster_map[i]] = pwm_microsecs
             pwm_msg.pins.append(self.thruster_map[i])
 
