@@ -38,9 +38,9 @@ class ThrusterInterface(object):
         ]
 
         self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
-        self.pwm_limit = rospy.get_param("/propulsion/thrusters/pwm_limit")
-        self.pwm_limit_min = self.pwm_limit[0]
-        self.pwm_limit_max = self.pwm_limit[1]
+        self.thrust_range = rospy.get_param("/propulsion/thrusters/thrust_range")
+        self.pwm_limit_min = self.map_percentage_to_pwm(self.thrust_range[0], 1100, 1900)
+        self.pwm_limit_max = self.map_percentage_to_pwm(self.thrust_range[1], 1100, 1900)
 
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
@@ -67,6 +67,15 @@ class ThrusterInterface(object):
         rospy.on_shutdown(self.output_to_zero)
 
         rospy.loginfo("Thruster interface initialized")
+
+    def map_percentage_to_pwm(self, percentage, rangeStart, rangeEnd):
+        if percentage < -1.0:
+            percentage = -1.0
+        elif percentage > 1.0:
+            percentage = 1.0
+
+        pwmSignal = int(((percentage + 1) / 2) * (rangeEnd - rangeStart) + rangeStart)
+        return pwmSignal
 
     def parse_and_interpolate_thruster_data(self, thruster_datasheet_path):
         """Parses the blue robotics T200 datasheet and creates a new dataset
@@ -302,10 +311,10 @@ if __name__ == "__main__":
     )
     NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num", default=8)
     THRUST_OFFSET = rospy.get_param(
-        "/propulsion/thrusters/offset", default=[0, 0, 0, 0, 0, 0, 0, 0]
+        "/propulsion/thrusters/offset"
     )
     THRUSTER_DIRECTION = rospy.get_param(
-        "/propulsion/thrusters/direction", default=[1, 1, 1, 1, 1, 1, 1, 1]
+        "/propulsion/thrusters/direction"
     )
 
     thruster_interface = ThrusterInterface(
