@@ -22,7 +22,6 @@ class ThrusterInterface(object):
         thruster_directions,
         thruster_offsets,
     ):
-
         self.num_thrusters = num_thrusters
         self.thruster_directions = thruster_directions
         self.thruster_offsets = thruster_offsets
@@ -39,8 +38,12 @@ class ThrusterInterface(object):
 
         self.thruster_map = rospy.get_param("/propulsion/thrusters/map")
         self.thrust_range = rospy.get_param("/propulsion/thrusters/thrust_range")
-        self.pwm_limit_min = self.map_percentage_to_pwm(self.thrust_range[0], 1100, 1900)
-        self.pwm_limit_max = self.map_percentage_to_pwm(self.thrust_range[1], 1100, 1900)
+        self.pwm_limit_min = self.map_percentage_to_pwm(
+            self.thrust_range[0], 1100, 1900
+        )
+        self.pwm_limit_max = self.map_percentage_to_pwm(
+            self.thrust_range[1], 1100, 1900
+        )
 
         # create thruster to pwm lookup function
         rospy.loginfo("Parsing and interpolating thruster datasheet..")
@@ -112,7 +115,7 @@ class ThrusterInterface(object):
             interpolated_thrusts = np.interp(new_voltage_steps, voltages, thrusts)
 
             # save interpolated thrusts to dict
-            for (voltage, thrust) in zip(new_voltage_steps, interpolated_thrusts):
+            for voltage, thrust in zip(new_voltage_steps, interpolated_thrusts):
                 thrusts_from_voltage[voltage].append(thrust)
 
         # create pwm_lookup functions by 1d interpolation of thrusts at each voltage level
@@ -180,7 +183,6 @@ class ThrusterInterface(object):
             return self.zero_thrust_msg()
 
         for thruster_number in range(len(thrust_msg.data)):
-
             forward_limit = self.thrusts_from_voltage[voltage][
                 -self.thruster_offsets[thruster_number] // 4 - 5
             ]  # 4 because of steps provided in T200 datasheet, 5 because of a quick hack
@@ -310,12 +312,8 @@ if __name__ == "__main__":
         % thruster_interface_path,
     )
     NUM_THRUSTERS = rospy.get_param("/propulsion/thrusters/num", default=8)
-    THRUST_OFFSET = rospy.get_param(
-        "/propulsion/thrusters/offset"
-    )
-    THRUSTER_DIRECTION = rospy.get_param(
-        "/propulsion/thrusters/direction"
-    )
+    THRUST_OFFSET = rospy.get_param("/propulsion/thrusters/offset")
+    THRUSTER_DIRECTION = rospy.get_param("/propulsion/thrusters/direction")
 
     thruster_interface = ThrusterInterface(
         thruster_datasheet_path=T200_DATASHEET_PATH,
