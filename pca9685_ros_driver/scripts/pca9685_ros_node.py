@@ -33,23 +33,17 @@ class Pca9685InterfaceNode(object):
         rospy.loginfo('Initialized for {0} Hz.'.format(FREQUENCY))
 
     def callback(self, msg):
-        pulse_log = []
         if len(msg.pins) == len(msg.positive_width_us):
             for i in range(len(msg.pins)):
                 if msg.positive_width_us[i] != self.current_pwm[msg.pins[i]]:
                     pulse = self.microsecs_to_bits(msg.positive_width_us[i])
-                    pulse_log.append(pulse)
                     self.pca9685.set_pwm(msg.pins[i], PWM_ON, pulse)
                     self.current_pwm[msg.pins[i]] = msg.positive_width_us[i]
-        rospy.logdebug(pulse_log)
 
     def microsecs_to_bits(self, microsecs):
         duty_cycle_normalized = microsecs / PERIOD_LENGTH_IN_MICROSECONDS
         return int(round(PWM_BITS_PER_PERIOD * duty_cycle_normalized))
 
-    def remap(self, old_val, old_min, old_max, new_min, new_max):
-        # Remaps an interval. Used for testing purposes.
-        return (new_max - new_min)*(old_val - old_min) / (old_max - old_min) + new_min
 
     def shutdown(self):
         self.pca9685.set_all_pwm(0, 0)
